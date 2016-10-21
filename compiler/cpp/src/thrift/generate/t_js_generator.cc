@@ -409,7 +409,7 @@ void t_js_generator::init_generator() {
 string t_js_generator::js_includes() {
   if (gen_node_) {
     return string(
-        "var thrift = require('thrift');\n"
+        "var thrift = require('@croquiscom/thrift');\n"
         "var Thrift = thrift.Thrift;\n"
         "var Q = thrift.Q;\n");
   }
