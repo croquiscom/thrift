@@ -1386,32 +1386,46 @@ void t_js_generator::generate_service_client(t_service* tservice) {
     }
 
     if (gen_node_) { // Node.js output      ./gen-nodejs
-      f_service_ << indent() << "this._seqid = this.new_seqid();" << endl << indent()
-                 << "if (callback === undefined) {" << endl;
-      indent_up();
-      f_service_ << indent() << "var _defer = Q.defer();" << endl << indent()
-                 << "this._reqs[this.seqid()] = function(error, result) {" << endl;
-      indent_up();
-      indent(f_service_) << "if (error) {" << endl;
-      indent_up();
-      indent(f_service_) << "_defer.reject(error);" << endl;
-      indent_down();
-      indent(f_service_) << "} else {" << endl;
-      indent_up();
-      indent(f_service_) << "_defer.resolve(result);" << endl;
-      indent_down();
-      indent(f_service_) << "}" << endl;
-      indent_down();
-      indent(f_service_) << "};" << endl;
-      f_service_ << indent() << "this.send_" << funname << "(" << arglist << ");" << endl
-                 << indent() << "return _defer.promise;" << endl;
-      indent_down();
-      indent(f_service_) << "} else {" << endl;
-      indent_up();
-      f_service_ << indent() << "this._reqs[this.seqid()] = callback;" << endl << indent()
-                 << "this.send_" << funname << "(" << arglist << ");" << endl;
-      indent_down();
-      indent(f_service_) << "}" << endl;
+      if ((*f_iter)->is_oneway()) {
+        f_service_ << indent() << "this._seqid = this.new_seqid();" << endl << indent()
+                   << "if (callback === undefined) {" << endl;
+        indent_up();
+        f_service_ << indent() << "this.send_" << funname << "(" << arglist << ");" << endl
+                   << indent() << "return Q();" << endl;
+        indent_down();
+        indent(f_service_) << "} else {" << endl;
+        indent_up();
+        f_service_ << indent() << "this.send_" << funname << "(" << arglist << ");" << endl;
+        indent_down();
+        indent(f_service_) << "}" << endl;
+      } else {
+        f_service_ << indent() << "this._seqid = this.new_seqid();" << endl << indent()
+                   << "if (callback === undefined) {" << endl;
+        indent_up();
+        f_service_ << indent() << "var _defer = Q.defer();" << endl << indent()
+                   << "this._reqs[this.seqid()] = function(error, result) {" << endl;
+        indent_up();
+        indent(f_service_) << "if (error) {" << endl;
+        indent_up();
+        indent(f_service_) << "_defer.reject(error);" << endl;
+        indent_down();
+        indent(f_service_) << "} else {" << endl;
+        indent_up();
+        indent(f_service_) << "_defer.resolve(result);" << endl;
+        indent_down();
+        indent(f_service_) << "}" << endl;
+        indent_down();
+        indent(f_service_) << "};" << endl;
+        f_service_ << indent() << "this.send_" << funname << "(" << arglist << ");" << endl
+                   << indent() << "return _defer.promise;" << endl;
+        indent_down();
+        indent(f_service_) << "} else {" << endl;
+        indent_up();
+        f_service_ << indent() << "this._reqs[this.seqid()] = callback;" << endl << indent()
+                   << "this.send_" << funname << "(" << arglist << ");" << endl;
+        indent_down();
+        indent(f_service_) << "}" << endl;
+      }
     } else if (gen_jquery_) { // jQuery output       ./gen-js
       f_service_ << indent() << "if (callback === undefined) {" << endl;
       indent_up();
