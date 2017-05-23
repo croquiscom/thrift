@@ -1110,6 +1110,7 @@ void t_js_generator::generate_process_function(t_service* tservice, t_function* 
     }
 
     f_service_ << ");" << endl;
+    f_service_ << indent() << "output.flush();" << endl;
     scope_down(f_service_);
     f_service_ << ";" << endl;
     return;
