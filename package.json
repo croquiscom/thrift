@@ -36,8 +36,7 @@
   },
   "dependencies": {
     "node-int64": "~0.3.0",
-    "q": "1.0.x",
-    "ws": "~0.4.32"
+    "q": "1.0.x"
   },
   "devDependencies": {
     "buffer-equals": "^1.0.3",
