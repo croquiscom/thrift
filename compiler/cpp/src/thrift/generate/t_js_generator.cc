@@ -75,10 +75,6 @@ public:
       }
     }
 
-    if (gen_node_ && gen_ts_) {
-      throw "Invalid switch: [-gen js:node,ts] options not compatible";
-    }
-
     if (gen_node_ && gen_jquery_) {
       throw "Invalid switch: [-gen js:node,jquery] options not compatible, try: [-gen js:node -gen "
             "js:jquery]";
@@ -185,7 +181,9 @@ public:
    */
 
   std::string js_includes();
+  std::string ts_includes();
   std::string render_includes();
+  std::string render_ts_includes();
   std::string declare_field(t_field* tfield, bool init = false, bool obj = false);
   std::string function_signature(t_function* tfunction,
                                  std::string prefix = "",
@@ -226,12 +224,16 @@ public:
     return pieces;
   }
 
-  std::string js_type_namespace(t_program* p) {
+  std::string js_type_namespace(t_program* p, bool for_ts_types = false) {
     if (gen_node_) {
       if (p != NULL && p != program_) {
         return make_valid_nodeJs_identifier(p->get_name()) + "_ttypes.";
       }
-      return "ttypes.";
+      if (for_ts_types) {
+        return "";
+      } else {
+        return "ttypes.";
+      }
     }
     return js_namespace(p);
   }
@@ -268,7 +270,7 @@ public:
    */
 
   string ts_function_signature(t_function* tfunction, bool include_callback);
-  string ts_get_type(t_type* type);
+  string ts_get_type(t_type* type, bool for_types);
 
   /**
    * Special indentation for TypeScript Definitions because of the module.
@@ -281,14 +283,14 @@ public:
    * Returns "declare " if no module was defined.
    * @return string
    */
-  string ts_declare() { return (ts_module_.empty() ? "declare " : ""); }
+  string ts_declare() { return (ts_module_.empty() ? "export declare " : ""); }
 
   /**
    * Returns "?" if the given field is optional.
    * @param t_field The field to check
    * @return string
    */
-  string ts_get_req(t_field* field) { return (field->get_req() == t_field::T_OPTIONAL ? "?" : ""); }
+  string ts_get_req(t_field* field) { return (field->get_req() != t_field::T_REQUIRED ? "?" : ""); }
 
   /**
    * Returns the documentation, if the provided documentable object has one.
@@ -378,6 +380,7 @@ void t_js_generator::init_generator() {
 
   if (gen_ts_) {
     f_types_ts_ << autogen_comment() << endl;
+    f_types_ts_ << ts_includes() << endl << render_ts_includes() << endl;
   }
 
   if (gen_node_) {
@@ -417,6 +420,15 @@ string t_js_generator::js_includes() {
   return "";
 }
 
+string t_js_generator::ts_includes() {
+  if (gen_node_) {
+    return string(
+        "import { Thrift } from '@croquiscom/thrift';\n");
+  }
+
+  return "";
+}
+
 /**
  * Renders all the imports necessary for including another Thrift program
  */
@@ -428,6 +440,23 @@ string t_js_generator::render_includes() {
     for (size_t i = 0; i < includes.size(); ++i) {
       result += "var " + make_valid_nodeJs_identifier(includes[i]->get_name()) + "_ttypes = require('./" + includes[i]->get_name()
                 + "_types');\n";
+    }
+    if (includes.size() > 0) {
+      result += "\n";
+    }
+  }
+
+  return result;
+}
+
+string t_js_generator::render_ts_includes() {
+  string result = "";
+
+  if (gen_node_) {
+    const vector<t_program*>& includes = program_->get_includes();
+    for (size_t i = 0; i < includes.size(); ++i) {
+      result += "import * as " + make_valid_nodeJs_identifier(includes[i]->get_name()) + "_ttypes from './" + includes[i]->get_name()
+                + "_types';\n";
     }
     if (includes.size() > 0) {
       result += "\n";
@@ -516,7 +545,7 @@ void t_js_generator::generate_const(t_const* tconst) {
 
   if (gen_ts_) {
     f_types_ts_ << ts_print_doc(tconst) << ts_indent() << ts_declare() << "var " << name << ": "
-                << ts_get_type(type) << ";" << endl;
+                << ts_get_type(type, true) << ";" << endl;
   }
 }
 
@@ -688,11 +717,11 @@ void t_js_generator::generate_js_struct_definition(ofstream& out,
   } else {
     out << js_namespace(tstruct->get_program()) << tstruct->get_name() << " = function(args) {"
         << endl;
-    if (gen_ts_) {
-      f_types_ts_ << ts_print_doc(tstruct) << ts_indent() << ts_declare() << "class "
-                  << tstruct->get_name() << (is_exception ? " extends Thrift.TException" : "")
-                  << " {" << endl;
-    }
+  }
+  if (gen_ts_) {
+    f_types_ts_ << ts_print_doc(tstruct) << ts_indent() << ts_declare() << "class "
+                << tstruct->get_name() << (is_exception ? " extends Thrift.TException" : "")
+                << " {" << endl;
   }
 
   indent_up();
@@ -715,8 +744,8 @@ void t_js_generator::generate_js_struct_definition(ofstream& out,
       out << indent() << dval << ";" << endl;
     }
     if (gen_ts_) {
-      f_types_ts_ << ts_indent() << (*m_iter)->get_name() << ": "
-                  << ts_get_type((*m_iter)->get_type()) << ";" << endl;
+      f_types_ts_ << ts_indent() << (*m_iter)->get_name() << ts_get_req(*m_iter) << ": "
+                  << ts_get_type((*m_iter)->get_type(), true) << ";" << endl;
     }
   }
 
@@ -797,7 +826,7 @@ void t_js_generator::generate_js_struct_definition(ofstream& out,
       out << indent() << indent() << "}" << endl;
       if (gen_ts_) {
         f_types_ts_ << (*m_iter)->get_name() << ts_get_req(*m_iter) << ": "
-                    << ts_get_type((*m_iter)->get_type()) << "; ";
+                    << ts_get_type((*m_iter)->get_type(), true) << "; ";
       }
     }
 
@@ -977,6 +1006,7 @@ void t_js_generator::generate_service(t_service* tservice) {
                     << ".d.ts\" />" << endl;
     }
     f_service_ts_ << autogen_comment() << endl;
+    f_service_ts_ << ts_includes() << endl << render_ts_includes() << endl;
     if (!ts_module_.empty()) {
       f_service_ts_ << "declare module " << ts_module_ << " {";
     }
@@ -993,6 +1023,10 @@ void t_js_generator::generate_service(t_service* tservice) {
     }
 
     f_service_ << "var ttypes = require('./" + program_->get_name() + "_types');" << endl;
+
+    if (gen_ts_) {
+      f_service_ts_ << "import * as ttypes from './" + program_->get_name() + "_types';" << endl;
+    }
   }
 
   generate_service_helpers(tservice);
@@ -1307,6 +1341,14 @@ void t_js_generator::generate_service_client(t_service* tservice) {
     string prefix = has_js_namespace(tservice->get_program()) ? js_namespace(tservice->get_program()) : "var ";
     f_service_ << prefix << service_name_ << "Client = "
                << "exports.Client = function(output, pClass) {" << endl;
+    if (gen_ts_) {
+      f_service_ts_ << ts_print_doc(tservice) << ts_indent() << ts_declare() << "interface "
+                    << service_name_ << " ";
+      if (tservice->get_extends() != NULL) {
+        f_service_ts_ << "extends " << tservice->get_extends()->get_name() << " ";
+      }
+      f_service_ts_ << "{" << endl;
+    }
   } else {
     f_service_ << js_namespace(tservice->get_program()) << service_name_
                << "Client = function(input, output) {" << endl;
@@ -1381,9 +1423,9 @@ void t_js_generator::generate_service_client(t_service* tservice) {
     if (gen_ts_) {
       f_service_ts_ << ts_print_doc(*f_iter) <<
           // function definition without callback
-          ts_indent() << ts_function_signature(*f_iter, false) << endl << ts_print_doc(*f_iter) <<
+          ts_indent() << ts_function_signature(*f_iter, false) << endl;// << ts_print_doc(*f_iter) <<
           // overload with callback
-          ts_indent() << ts_function_signature(*f_iter, true) << endl;
+          //ts_indent() << ts_function_signature(*f_iter, true) << endl;
     }
 
     if (gen_node_) { // Node.js output      ./gen-nodejs
@@ -2160,7 +2202,7 @@ string t_js_generator::type_to_enum(t_type* type) {
  * @param t_type Type to convert to TypeScript
  * @return String TypeScript type
  */
-string t_js_generator::ts_get_type(t_type* type) {
+string t_js_generator::ts_get_type(t_type* type, bool for_types) {
   std::string ts_type;
 
   type = get_true_type(type);
@@ -2169,7 +2211,11 @@ string t_js_generator::ts_get_type(t_type* type) {
     t_base_type::t_base tbase = ((t_base_type*)type)->get_base();
     switch (tbase) {
     case t_base_type::TYPE_STRING:
-      ts_type = "string";
+      if (((t_base_type*)type)->is_binary()) {
+        ts_type = "Buffer";
+      } else {
+        ts_type = "string";
+      }
       break;
     case t_base_type::TYPE_BOOL:
       ts_type = "boolean";
@@ -2189,7 +2235,7 @@ string t_js_generator::ts_get_type(t_type* type) {
   } else if (type->is_enum() || type->is_struct() || type->is_xception()) {
     std::string type_name;
     if (type->get_program()) {
-      type_name = js_namespace(type->get_program());
+      type_name = js_type_namespace(type->get_program(), for_types);
     }
     type_name.append(type->get_name());
     ts_type = type_name;
@@ -2202,10 +2248,10 @@ string t_js_generator::ts_get_type(t_type* type) {
       etype = ((t_set*)type)->get_elem_type();
     }
 
-    ts_type = ts_get_type(etype) + "[]";
+    ts_type = ts_get_type(etype, for_types) + "[]";
   } else if (type->is_map()) {
-    string ktype = ts_get_type(((t_map*)type)->get_key_type());
-    string vtype = ts_get_type(((t_map*)type)->get_val_type());
+    string ktype = ts_get_type(((t_map*)type)->get_key_type(), for_types);
+    string vtype = ts_get_type(((t_map*)type)->get_val_type(), for_types);
 
 
     if (ktype == "number" || ktype == "string" ) {
@@ -2237,7 +2283,7 @@ std::string t_js_generator::ts_function_signature(t_function* tfunction, bool in
   str = tfunction->get_name() + "(";
 
   for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
-    str += (*f_iter)->get_name() + ts_get_req(*f_iter) + ": " + ts_get_type((*f_iter)->get_type());
+    str += (*f_iter)->get_name() + ts_get_req(*f_iter) + ": " + ts_get_type((*f_iter)->get_type(), false);
 
     if (f_iter + 1 != fields.end() || (include_callback && fields.size() > 0)) {
       str += ", ";
@@ -2245,15 +2291,15 @@ std::string t_js_generator::ts_function_signature(t_function* tfunction, bool in
   }
 
   if (include_callback) {
-    str += "callback: (data: " + ts_get_type(tfunction->get_returntype()) + ")=>void): ";
+    str += "callback: (data: " + ts_get_type(tfunction->get_returntype(), false) + ")=>void): ";
 
     if (gen_jquery_) {
-      str += "JQueryPromise<" + ts_get_type(tfunction->get_returntype()) +">;";
+      str += "JQueryPromise<" + ts_get_type(tfunction->get_returntype(), false) +">;";
     } else {
       str += "void;";
     }
   } else {
-    str += "): " + ts_get_type(tfunction->get_returntype()) + ";";
+    str += "): PromiseLike<" + ts_get_type(tfunction->get_returntype(), false) + ">;";
   }
 
   return str;
