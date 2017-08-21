@@ -290,7 +290,7 @@ public:
    * @param t_field The field to check
    * @return string
    */
-  string ts_get_req(t_field* field) { return (field->get_req() == t_field::T_OPTIONAL ? "?" : ""); }
+  string ts_get_req(t_field* field) { return (field->get_req() != t_field::T_REQUIRED ? "?" : ""); }
 
   /**
    * Returns the documentation, if the provided documentable object has one.
