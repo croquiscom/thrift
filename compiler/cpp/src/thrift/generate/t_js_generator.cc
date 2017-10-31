@@ -2199,7 +2199,11 @@ string t_js_generator::ts_get_type(t_type* type, bool for_types) {
     t_base_type::t_base tbase = ((t_base_type*)type)->get_base();
     switch (tbase) {
     case t_base_type::TYPE_STRING:
-      ts_type = "string";
+      if (((t_base_type*)type)->is_binary()) {
+        ts_type = "Buffer";
+      } else {
+        ts_type = "string";
+      }
       break;
     case t_base_type::TYPE_BOOL:
       ts_type = "boolean";
