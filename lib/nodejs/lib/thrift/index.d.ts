@@ -8,6 +8,7 @@
 
 /// <reference types="node" />
 
+import * as events from 'events';
 import * as net from 'net';
 import * as http from 'http';
 import * as https from 'https';
@@ -129,7 +130,7 @@ export interface SeqId2Service {
     [seqid: number]: string;
 }
 
-export class Connection extends NodeJS.EventEmitter {
+export class Connection extends events.EventEmitter {
     seqId2Service: SeqId2Service;
     connection: net.Socket;
     ssl: boolean;
@@ -146,7 +147,7 @@ export class Connection extends NodeJS.EventEmitter {
     connection_gone(): void;
 }
 
-export class HttpConnection extends NodeJS.EventEmitter {
+export class HttpConnection extends events.EventEmitter {
     options: ConnectOptions;
     host: string;
     port: number;
@@ -158,7 +159,7 @@ export class HttpConnection extends NodeJS.EventEmitter {
     write(data: Buffer): void;
 }
 
-export class XHRConnection extends NodeJS.EventEmitter {
+export class XHRConnection extends events.EventEmitter {
     seqId2Service: SeqId2Service;
     options: ConnectOptions;
     wpos: number;
@@ -189,7 +190,7 @@ export interface WSOptions {
     headers: HttpHeaders;
 }
 
-export class WSConnection extends NodeJS.EventEmitter {
+export class WSConnection extends events.EventEmitter {
     seqId2Service: SeqId2Service;
     options: ConnectOptions;
     host: string;

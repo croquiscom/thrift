@@ -33,7 +33,7 @@
   "main": "./lib/nodejs/lib/thrift",
   "types": "./lib/nodejs/lib/thrift/index.d.ts",
   "engines": {
-    "node": ">= 4.1.0"
+    "node": ">= 10.0.0"
   },
   "dependencies": {
     "@types/node-int64": "^0.4.29",
